@@ -7,17 +7,15 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn import metrics
 import matplotlib.pyplot as plt
 
-# np.set_printoptions(threshold=np.nan)
+np.set_printoptions(threshold=np.nan)
 		
-def initialize():
-	
-	init_frame = np.zeros((95, 95, 95)) # This 95 is the number of classes known prior
-	
+def initialize(num_files):
+
 	GNB = []
 	Model = []
 	# Storing the Gaussian NBCs ^
 	
-	for k in range (1,21):
+	for k in range (1,num_files):
 		train = np.loadtxt(str(k)+".csv",delimiter = ",")
 
 		X = train[:,0:21]
@@ -46,9 +44,20 @@ def initialize():
 	
 	return Model, GNB
 
-def classify(trained_model, clf, top_gest):
+# utility fucntion to get labesl for previous classes.
+# def get_prev_class():
+	
+
+def classify(num_files, trained_model, clf, top_gest):
 	class_weight = np.zeros((95,95), dtype = float)
-	for k in range(1,21):
+	# Here the number of the columns are the number of test records 
+	
+	coming_from = []
+	# coming from holds the class labels held in the previous frame
+	# each matrix shape is of the form: number of test records x num of top_gest
+	# initially num of frames is 0.
+	
+	for k in range(1,num_files):
 		n_gest = trained_model[k-1]
 		# n_gest is the matrix of the corresponding time-frame
 		# which holds the class predictions for the time-frame.
@@ -61,22 +70,64 @@ def classify(trained_model, clf, top_gest):
 		# storing the probability predictions.
 		proba_pred = clf[k-1].predict_proba(t1)
 		max_indexes = proba_pred.argsort(axis = 1)
-
-		for j in range(0,proba_pred.shape[0]):
-			top = max_indexes[95-top_gest:95]	
+		proba_pred_sorted = np.sort(proba_pred,axis = 1)
+		
+		top = max_indexes[:,95-top_gest:95]	
+		top_proba = proba_pred_sorted[:,95-top_gest:95]
+		
+		if (k == 1):
+			# This means we are at the beginning of the frames
+			# No previous classes yet, just go normally to the top_gest classes
+			for j in range(0,proba_pred.shape[0]):
+				for i in range(top.shape[1]):
+					class_weight[top[j,i],j] += top_proba[j,i] #proba_pred[j,top[j,i]]
+					# Here we are not taking the input from where the class is coming,
+					# because this is the starting time frame. That happens later.
+							
+		else:
+			# Not at the beginning of frames, now start to use the prev classes from 
+			# which you've arrived from.
+			prev_classes = coming_from[k-2]
+			for j in range(0,proba_pred.shape[0]):
+				for i in range(top.shape[1]):
+					class_to = top[j,i]
+					
+					for ki in range(prev_classes.shape[1]):
+						class_from = prev_classes[j,ki]
+						
+						class_weight[class_to,j] += (n_gest[class_from,class_to]) * proba_pred[j,class_to]
+				
 			# top stores the top 'x' gestures using the top_gest var.
-
-			for i in range(top.shape[1]):
-				class_weight[top[i],j] += (n_gest[] * nearest_gest[2*(k-1)+i,1])
+		# print class_weight
+		coming_from.append(top)
 
 	pred_labels = np.argmax(class_weight, axis = 0)
-	
+	# print class_weight, pred_labels
 	return metrics.accuracy_score(t1_labels.astype(int), pred_labels)
 
 
 if __name__ == '__main__':
-	
-	top_gest = 3 # the top 'x' gestures to consider.
-	trained_model, clf = initialize()
-	classify(trained_model, clf, top_gest)
-	
+	top_gest = 2 # the top 'x' gestures to consider.
+	frames_to_consider = 21
+	trained_model, clf = initialize(frames_to_consider)
+	print classify(frames_to_consider, trained_model, clf, top_gest)
+
+# Use the below for plotting.
+# 
+# if __name__ == '__main__':
+# 	c = ['r','b','g','c','m','y','k','w','#b3de69','#fa8174','#00FFCC','#6d904f']
+# 	for i in range(3,15):
+# 		print 'i',i 
+# 		frames = []
+# 		classify_rate = []
+# 		for j in range(10,41):
+# 			print 'j', j
+# 			top_gest = i # the top 'x' gestures to consider.
+# 			trained_model, clf = initialize(j)
+# 			# print i,'-',j,':',classify(j, trained_model, clf, top_gest)
+# 			frames.append(j)
+# 			classify_rate.append(classify(j, trained_model, clf, top_gest))
+
+# 		plt.plot(frames, classify_rate, marker = 'o', color = c[i-3], linestyle = '--', label = str(i)+"NN Gestures")
+# 	plt.legend()
+# 	plt.show()
