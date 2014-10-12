@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn import metrics
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 # np.set_printoptions(threshold=np.nan)
 		
@@ -37,28 +38,41 @@ def find_closest_match(t, t_min, row, num_gest, k):
 	# per_frame is the matrix which stores for each frame, the nearest gestrue and the probability assigned to that gesture
 	return per_frame, float(count)/t_min.shape[0]
 	
+def PCA_trans(X, n_co):
+	pca = PCA(n_components = n_co)
+	return pca.fit(X)
 
-def initialize(num_gest, col_num):
+def initialize(num_gest, col_num, n_co_PCA):
 	# num_gest = 2
 	# col_num = 10
 	init_frame = np.zeros((95,num_gest,num_gest))
 	GNB = []
 	INCP = [] # for incorrect prediction graphing
 	K = [] # for value of k
+	pca_per_frame = []
 	for k in range (1,21):
 		train = np.loadtxt(str(k)+".csv",delimiter = ",")
 
 		X = train[:,0:21]
 		Y = train[:,22]
 
-		nbclf = GaussianNB()
-		nbclf.fit(X,Y)
+		# nbclf = GaussianNB()
+		# nbclf.fit(X,Y)
 		
-		y_pred_proba = nbclf.predict_proba(X)
+		# Uncomment the above lines and comment the below lines to remove PCA
+		pca_X = PCA_trans(X, n_co_PCA)
+		pca_per_frame.append(pca_X)
+
+		X_trans = pca_X.transform(X)
+
+		nbclf = GaussianNB()
+		nbclf.fit(X_trans,Y)
+		
+		y_pred_proba = nbclf.predict_proba(X_trans)
 		t = np.zeros((95,95), dtype = float)
 		# Define t here.
 
-		for i in range(0,X.shape[0]):
+		for i in range(0,X_trans.shape[0]):
 			cl = int(Y[i,]) # Define purpose of cl here
 			t[cl:cl+1,:] += nbclf.class_prior_[cl] * y_pred_proba[i:i+1,:]
 		
@@ -73,9 +87,9 @@ def initialize(num_gest, col_num):
 
 	init_frame = init_frame[:,num_gest:,:]
 	
-	return init_frame, GNB, num_gest, INCP, K
+	return init_frame, GNB, num_gest, INCP, K, pca_per_frame
 
-def classify(trained_model, clf, num_gest):
+def classify(trained_model, clf, num_gest, pca_per_frame):
 	class_weight = np.zeros((95,95), dtype = float)
 	for k in range(1,21):
 
@@ -84,8 +98,9 @@ def classify(trained_model, clf, num_gest):
 
 		t1_labels = test[:,22]
 
+		t1_trans = pca_per_frame[k-1].transform(t1)
 		# storing the probability predictions.
-		proba_pred = clf[k-1].predict_proba(t1)
+		proba_pred = clf[k-1].predict_proba(t1_trans)
 
 		for j in range(0,proba_pred.shape[0]):
 			max_index = proba_pred[j].argmax()
@@ -143,28 +158,40 @@ def classify_2(trained_model, clf, num_gest):
 	
 		print metrics.accuracy_score(t1_labels.astype(int), pred_labels), k
 
-if __name__ == '__main__':
-	# error = []
-	# gest = []
-	# M_INCP = []
-	# c = ['r','b','g','c','m','y','k','w']
-	# for i in range(2,10):
-	# 	print i,'th round'
-	
-	num_gest = 2
-	# gest.append(num_gest)
-	col_num = 10
-	trained_model, clf, num_gest, INCP, K = initialize(num_gest, col_num)
-	print classify(trained_model, clf, num_gest)
-	# classify_2(trained_model, clf, num_gest)
 
-	# 	plt.plot(K, INCP, marker = 'o', color = c[i-2], linestyle = '--', label = str(i)+" Gestures")
-	# plt.legend()
-	# plt.show()
-	# error.append(classify(trained_model, clf, num_gest))
+if __name__ == '__main__':
+	num_gest = 2
+	col_num = 21
+	for i in range(21,22):
+		n_co_PCA = i #10
+		print 'Number of components saved are :', i
+		trained_model, clf, num_gest, INCP, K, pca_per_frame = initialize(num_gest, col_num, n_co_PCA)
+		print classify(trained_model, clf, num_gest, pca_per_frame)
+
+# 	Below to be used for plotting.
+# 	
+# if __name__ == '__main__':
+# 	# error = []
+# 	# gest = []
+# 	# M_INCP = []
+# 	# c = ['r','b','g','c','m','y','k','w']
+# 	# for i in range(2,10):
+# 	# 	print i,'th round'
+	
+# 	num_gest = 3
+# 	# gest.append(num_gest)
+# 	col_num = 10
+# 	trained_model, clf, num_gest, INCP, K = initialize(num_gest, col_num)
+# 	print classify(trained_model, clf, num_gest)
+# 	# classify_2(trained_model, clf, num_gest)
+
+# 	# 	plt.plot(K, INCP, marker = 'o', color = c[i-2], linestyle = '--', label = str(i)+" Gestures")
+# 	# plt.legend()
+# 	# plt.show()
+# 	# error.append(classify(trained_model, clf, num_gest))
 	
 	
-	# plt.plot(gest, error)
-	# plt.xlabel("Number of Gestures used for scoring.")
-	# plt.ylabel("Accuracy")
-	# plt.show()
+# 	# plt.plot(gest, error)
+# 	# plt.xlabel("Number of Gestures used for scoring.")
+# 	# plt.ylabel("Accuracy")
+# 	# plt.show()

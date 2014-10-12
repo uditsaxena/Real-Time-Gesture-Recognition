@@ -6,14 +6,18 @@ import numpy as np
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn import metrics
 import matplotlib.pyplot as plt
-
+from sklearn.decomposition import PCA
 np.set_printoptions(threshold=np.nan)
+
+def PCA_trans(X, n_co):
+	pca = PCA(n_components = n_co)
+	return pca.fit(X)
 		
-def initialize(num_files):
+def initialize(num_files, n_co_PCA):
 
 	GNB = []
 	Model = []
-	# Storing the Gaussian NBCs ^
+	pca_per_frame = []
 	
 	for k in range (1,num_files):
 		train = np.loadtxt(str(k)+".csv",delimiter = ",")
@@ -21,10 +25,19 @@ def initialize(num_files):
 		X = train[:,0:21]
 		Y = train[:,22]
 
-		nbclf = GaussianNB()
-		nbclf.fit(X,Y)
+		# nbclf = GaussianNB()
+		# nbclf.fit(X,Y)
 		
-		y_pred_proba = nbclf.predict_proba(X)
+		# Uncomment the above lines and comment the below lines to remove PCA
+		pca_X = PCA_trans(X, n_co_PCA)
+		pca_per_frame.append(pca_X)
+
+		X_trans = pca_X.transform(X)
+		
+		nbclf = GaussianNB()
+		nbclf.fit(X_trans,Y)
+
+		y_pred_proba = nbclf.predict_proba(X_trans)
 		t = np.zeros((95,95), dtype = float)
 		# The rows and cols of t are the number of classes.
 		# Each class is mapped to every other class.
@@ -42,13 +55,13 @@ def initialize(num_files):
 		Model.append(t)
 		GNB.append(nbclf)
 	
-	return Model, GNB
+	return Model, GNB, pca_per_frame
 
 # utility fucntion to get labesl for previous classes.
 # def get_prev_class():
 	
 
-def classify(num_files, trained_model, clf, top_gest):
+def classify(num_files, trained_model, clf, top_gest, pca_per_frame):
 	class_weight = np.zeros((95,95), dtype = float)
 	# Here the number of the columns are the number of test records 
 	
@@ -66,9 +79,9 @@ def classify(num_files, trained_model, clf, top_gest):
 		t1 = test[:,0:21] 
 
 		t1_labels = test[:,22]
-
+		t1_trans = pca_per_frame[k-1].transform(t1)
 		# storing the probability predictions.
-		proba_pred = clf[k-1].predict_proba(t1)
+		proba_pred = clf[k-1].predict_proba(t1_trans)
 		max_indexes = proba_pred.argsort(axis = 1)
 		proba_pred_sorted = np.sort(proba_pred,axis = 1)
 		
@@ -109,8 +122,9 @@ def classify(num_files, trained_model, clf, top_gest):
 if __name__ == '__main__':
 	top_gest = 2 # the top 'x' gestures to consider.
 	frames_to_consider = 21
-	trained_model, clf = initialize(frames_to_consider)
-	print classify(frames_to_consider, trained_model, clf, top_gest)
+	n_co_PCA = 18 # got this number through analysis.
+	trained_model, clf, pca_per_frame = initialize(frames_to_consider, n_co_PCA) 
+	print classify(frames_to_consider, trained_model, clf, top_gest, pca_per_frame)
 
 # Use the below for plotting.
 # 
