@@ -3,27 +3,35 @@
 # different.
 
 import numpy as np
-from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.naive_bayes import GaussianNB
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from sklearn import cross_validation as cv
+
 np.set_printoptions(threshold=np.nan)
 
 def PCA_trans(X, n_co):
 	pca = PCA(n_components = n_co)
 	return pca.fit(X)
 		
-def initialize(num_files, n_co_PCA):
+def initialize(num_files, n_co_PCA, train, train_label, fold):
 
 	GNB = []
 	Model = []
 	pca_per_frame = []
 	
 	for k in range (1,num_files):
-		train = np.loadtxt(str(k)+".csv",delimiter = ",")
+		# train = np.loadtxt(str(k)+".csv",delimiter = ",")
 
-		X = train[:,0:21]
-		Y = train[:,22]
+		# X = train[:,0:21]
+		# Y = train[:,22]
+		
+		_x = train[k-1]
+		_x_label = train_label[k-1]
+
+		X = _x[fold]
+		Y = _x_label[fold]
 
 		# nbclf = GaussianNB()
 		# nbclf.fit(X,Y)
@@ -57,11 +65,7 @@ def initialize(num_files, n_co_PCA):
 	
 	return Model, GNB, pca_per_frame
 
-# utility fucntion to get labesl for previous classes.
-# def get_prev_class():
-	
-
-def classify(num_files, trained_model, clf, top_gest, pca_per_frame):
+def classify(num_files, trained_model, clf, pca_per_frame, test, test_label, fold):
 	class_weight = np.zeros((95,95), dtype = float)
 	# Here the number of the columns are the number of test records 
 	
@@ -75,10 +79,18 @@ def classify(num_files, trained_model, clf, top_gest, pca_per_frame):
 		# n_gest is the matrix of the corresponding time-frame
 		# which holds the class predictions for the time-frame.
 		
-		test = np.loadtxt(str(k)+"_test.csv",delimiter = ',')
-		t1 = test[:,0:21] 
+		# test = np.loadtxt(str(k)+"_test.csv",delimiter = ',')
+		# t1 = test[:,0:21] 
 
-		t1_labels = test[:,22]
+		# t1_labels = test[:,22]
+		
+		_te = test[k-1]
+		_te_label = test_label[k-1]
+
+		t1 = _te[fold]
+		t1_labels = _te_label[fold]
+
+		
 		t1_trans = pca_per_frame[k-1].transform(t1)
 		# storing the probability predictions.
 		proba_pred = clf[k-1].predict_proba(t1_trans)
@@ -118,13 +130,46 @@ def classify(num_files, trained_model, clf, top_gest, pca_per_frame):
 	# print class_weight, pred_labels
 	return metrics.accuracy_score(t1_labels.astype(int), pred_labels)
 
+def get_folds(frames_to_consider, n_fold):
+
+	train, train_label, test, test_label = [], [], [], []
+	for i in range(1, frames_to_consider):
+		data = np.loadtxt(str(i)+".csv",delimiter = ",")
+
+		X = data[:,0:21]
+		Y = data[:,22]
+
+		skf = cv.StratifiedKFold(Y, n_fold)
+		
+		tr, tr_label, te, te_label = [], [], [], []
+
+		for train_index, test_index in skf:
+			tr.append(X[train_index])
+			tr_label.append(Y[train_index])
+			te.append(X[test_index])
+			print len(X[test_index])
+			te_label.append(Y[test_index])
+
+		train.append(tr)
+		train_label.append(tr_label)
+		test.append(te)
+		test_label.append(te_label)
+
+	return train, train_label, test, test_label
+
 # If not plotting: 
 if __name__ == '__main__':
 	top_gest = 2 # the top 'x' gestures to consider.
 	frames_to_consider = 41
 	n_co_PCA = 18 # got this number through analysis.
-	trained_model, clf, pca_per_frame = initialize(frames_to_consider, n_co_PCA) 
-	print classify(frames_to_consider, trained_model, clf, top_gest, pca_per_frame)
+	n_fold = 3
+	
+	train, train_label, test, test_label = get_folds(frames_to_consider, n_fold)
+	# for n_f in range(n_fold):
+	# 	print 'Fold: ', n_f
+	# 	trained_model, clf, pca_per_frame = initialize(frames_to_consider, n_co_PCA, train, train_label, n_f) 
+	# 	print classify(frames_to_consider, trained_model, clf, pca_per_frame, test, test_label, n_f)
+	
 
 # Use the below for plotting.
 # 
