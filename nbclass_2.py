@@ -118,10 +118,10 @@ def classify(num_files, trained_model, clf, top_gest, pca_per_frame):
 	# print class_weight, pred_labels
 	return metrics.accuracy_score(t1_labels.astype(int), pred_labels)
 
-
+# If not plotting: 
 if __name__ == '__main__':
 	top_gest = 2 # the top 'x' gestures to consider.
-	frames_to_consider = 21
+	frames_to_consider = 41
 	n_co_PCA = 18 # got this number through analysis.
 	trained_model, clf, pca_per_frame = initialize(frames_to_consider, n_co_PCA) 
 	print classify(frames_to_consider, trained_model, clf, top_gest, pca_per_frame)
@@ -130,18 +130,21 @@ if __name__ == '__main__':
 # 
 # if __name__ == '__main__':
 # 	c = ['r','b','g','c','m','y','k','w','#b3de69','#fa8174','#00FFCC','#6d904f']
-# 	for i in range(3,15):
+# 	for i in range(11,23):
 # 		print 'i',i 
 # 		frames = []
 # 		classify_rate = []
-# 		for j in range(10,41):
+# 		for j in range(15,38):
 # 			print 'j', j
-# 			top_gest = i # the top 'x' gestures to consider.
-# 			trained_model, clf = initialize(j)
+# 			top_gest = 2 # the top 'x' gestures to consider.
+# 			# n_comp = []
+# 			# for n_co_PCA in range(18,19):
+# 			# 	n_comp.append(n_co_PCA)
+# 			n_co_PCA = i
+# 			trained_model, clf, pca_per_frame = initialize(j, n_co_PCA)
 # 			# print i,'-',j,':',classify(j, trained_model, clf, top_gest)
 # 			frames.append(j)
-# 			classify_rate.append(classify(j, trained_model, clf, top_gest))
-
-# 		plt.plot(frames, classify_rate, marker = 'o', color = c[i-3], linestyle = '--', label = str(i)+"NN Gestures")
+# 			classify_rate.append(classify(j, trained_model, clf, top_gest, pca_per_frame))
+# 		plt.plot(frames, classify_rate, marker = 'o', color = c[i-11], linestyle = '--', label = str(i)+" PCA n_co")
 # 	plt.legend()
 # 	plt.show()
